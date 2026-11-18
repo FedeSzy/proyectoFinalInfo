@@ -1,0 +1,25 @@
+NOMBRE
+Doctora Voltia
+DESCRIPCION
+Científica que convirtió su laboratorio en una armadura eléctrica. Calcula cada movimiento y descarga rayos, pero no es una luchadora cuerpo a cuerpo.
+ASCIIART
+         _/\/\/\_
+        /        \
+       |  (O)(O)  |  ~z
+       |    __    | ~z
+        \________/
+      ____|    |____
+     /  _  \  /  _  \
+    |  |#|  \/  |#|  |
+    |__|_|______|_|__|
+       |    /\    |
+       |___/  \___|
+       [__]    [__]
+FINASCIIART
+ATRIBUTOS
+FUERZA;300
+VELOCIDAD;400
+RESISTENCIA;400
+INTELIGENCIA;700
+ENERGIA;650
+HABILIDAD;550

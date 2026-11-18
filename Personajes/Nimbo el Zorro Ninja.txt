@@ -1,0 +1,23 @@
+NOMBRE
+Nimbo el Zorro Ninja
+DESCRIPCION
+Zorro de las montañas brumosas entrenado en artes sigilosas. Nadie es más rápido que él, aunque un solo golpe fuerte puede dejarlo fuera de combate.
+ASCIIART
+      /\     /\
+     /  \___/  \
+    (  >     <  )
+     \    v    /
+   ===\_______/===
+       /|   |\
+      / |___| \     __
+        /   \      /  \
+       /     \____/   /
+      (__)  (__)  \__/
+FINASCIIART
+ATRIBUTOS
+FUERZA;350
+VELOCIDAD;750
+RESISTENCIA;300
+INTELIGENCIA;500
+ENERGIA;450
+HABILIDAD;650

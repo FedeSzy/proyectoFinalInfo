@@ -1,0 +1,26 @@
+NOMBRE
+Golem de Basalto
+DESCRIPCION
+Guardián de piedra volcánica despertado en las minas del norte. Es lento y poco astuto, pero casi imposible de derribar y con un golpe capaz de partir murallas.
+ASCIIART
+        ___________
+       /  _     _  \
+      |  (#)   (#)  |
+      |      ^      |
+       \  [=====]  /
+   _____\_________/_____
+  /     |  #   #  |     \
+ | [##] |   ###   | [##] |
+ |______|  #   #  |______|
+        |_________|
+        |###| |###|
+        |###| |###|
+       [_____][_____]
+FINASCIIART
+ATRIBUTOS
+FUERZA;750
+VELOCIDAD;250
+RESISTENCIA;700
+INTELIGENCIA;300
+ENERGIA;500
+HABILIDAD;500

@@ -1,0 +1,18 @@
+NOMBRE
+Personaje de Prueba
+DESCRIPCION
+Primera línea de la descripción.
+Segunda línea.
+ASCIIART
+  o
+ /|\
+ / \
+FINASCIIART
+ATRIBUTOS
+VELOCIDAD;700
+FUERZA;450
+RESISTENCIA;300
+INTELIGENCIA;500
+ENERGIA;550
+HABILIDAD;500
+

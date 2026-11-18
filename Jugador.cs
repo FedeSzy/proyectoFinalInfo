@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace TrabajoFinal_Fink_Szymsio_Fio
 {
+    // Representa a cada participante: su nombre, su mazo, la carta que juega en la ronda y las rondas ganadas.
     public class Jugador
     {
         private string nombre;
@@ -13,17 +14,26 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
         private Carta cartaElegida;
         private int puntos;
 
-        public Jugador(string nombre, Mazo mazo, Carta cartaElegida, int puntos)
+        public Jugador(string nombre)
         {
-            this.nombre = nombre;
-            this.mazo = mazo;
-            this.cartaElegida = cartaElegida;
-            this.puntos = puntos;
+            if (nombre == null || nombre.Trim() == "")
+                nombre = "Jugador";
+            this.nombre = nombre.Trim();
+            this.mazo = new Mazo();
+            this.cartaElegida = null;
+            this.puntos = 0;
         }
 
-        public void elegirCarta(Carta carta)
+        // Elige la carta para la ronda. Solo puede elegirse una carta que esté en el propio mazo.
+        public bool elegirCarta(Carta carta)
         {
-            cartaElegida = carta;
+            bool elegida = false;
+            if (carta != null && mazo.contieneCarta(carta))
+            {
+                cartaElegida = carta;
+                elegida = true;
+            }
+            return elegida;
         }
 
         public void sumarPunto()
@@ -38,9 +48,27 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
 
         public Carta getCartaElegida()
         {
-            return cartaElegida ;
+            return cartaElegida;
         }
 
-        public Mazo getMazo() {return mazo;}
+        public Mazo getMazo()
+        {
+            return mazo;
+        }
+
+        public string getNombre()
+        {
+            return nombre;
+        }
+
+        public int cantidadCartas()
+        {
+            return mazo.cantidadCartas();
+        }
+
+        public bool sinCartas()
+        {
+            return mazo.estaVacio();
+        }
     }
 }

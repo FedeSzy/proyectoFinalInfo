@@ -1,0 +1,17 @@
+NOMBRE
+Superheroe
+Desc: Un superheroe
+ASCII:
+      ,
+     0/
+    /7,
+  .'(
+'^ / >
+  / <
+ATRIBUTOS
+FUERZA: 999
+VELOCIDAD: 999
+RESISTENCIA: 999
+INTELIGENCIA: 999
+ENERGIA: 999
+HABILIDAD: 999

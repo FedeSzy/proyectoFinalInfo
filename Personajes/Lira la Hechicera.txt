@@ -1,0 +1,24 @@
+NOMBRE
+Lira la Hechicera
+DESCRIPCION
+Estudiosa de las bibliotecas flotantes de Aldemar. Domina hechizos de energía pura y anticipa los movimientos de sus rivales, aunque su cuerpo es frágil.
+ASCIIART
+           /\
+          /  \
+         /____\        *
+        ( o  o )      /|\
+         \ __ /      * | *
+      ___/    \___     |
+     /   \ /\ /   \____|
+    /  *  V  V  *  \   |
+   /________________\  |
+       |   ||   |      |
+       |___||___|
+FINASCIIART
+ATRIBUTOS
+FUERZA;250
+VELOCIDAD;450
+RESISTENCIA;350
+INTELIGENCIA;750
+ENERGIA;700
+HABILIDAD;500

@@ -1,0 +1,24 @@
+NOMBRE
+Capitan Ventisca
+DESCRIPCION
+Piloto de un velero aéreo que navega entre tormentas. Rápido para maniobrar y muy hábil con el timón, pero gasta poca energía en combate.
+ASCIIART
+          _____
+       __|_____|__
+         ( -  - )
+          \ ~~ /      ~~~
+       ____|  |____  ~~~~~
+      /    |  |    \~~~
+     | |   |  |   | |
+     |_|  /    \  |_|
+         /  /\  \
+        /__/  \__\
+       ~~~~~~~~~~~~~~
+FINASCIIART
+ATRIBUTOS
+FUERZA;500
+VELOCIDAD;650
+RESISTENCIA;450
+INTELIGENCIA;500
+ENERGIA;300
+HABILIDAD;600

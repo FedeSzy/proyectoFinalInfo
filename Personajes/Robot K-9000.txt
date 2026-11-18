@@ -1,0 +1,23 @@
+NOMBRE
+Robot K-9000
+DESCRIPCION
+Robot de carga reprogramado para la defensa de estaciones espaciales. Su blindaje es enorme y su batería dura días, pero sus pinzas son torpes.
+ASCIIART
+         [=====]
+          | o |
+       ___|___|___
+      |  _______  |
+   ___| |  ===  | |___
+  |___| | [K9]  | |___|
+   | |  |_______|  | |
+   <_>   |  _  |   <_>
+         |_| |_|
+        [___] [___]
+FINASCIIART
+ATRIBUTOS
+FUERZA;600
+VELOCIDAD;350
+RESISTENCIA;750
+INTELIGENCIA;550
+ENERGIA;500
+HABILIDAD;250

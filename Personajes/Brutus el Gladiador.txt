@@ -1,0 +1,25 @@
+NOMBRE
+Brutus el Gladiador
+DESCRIPCION
+Campeón invicto de la arena de Kordia. Pega fuerte y aguanta cualquier castigo, aunque prefiere no pensar demasiado antes de atacar.
+ASCIIART
+          ,/|\,
+         /_____\
+        | () () |
+        |  ___  |
+         \_____/
+     _____|   |_____
+    /  ___|   |___  \      /
+   |  /   |___|   \  |    /
+   |_|   /     \   |_|===O
+         |  |  |         \
+         |__|__|          \
+        [__] [__]
+FINASCIIART
+ATRIBUTOS
+FUERZA;700
+VELOCIDAD;450
+RESISTENCIA;650
+INTELIGENCIA;250
+ENERGIA;500
+HABILIDAD;450
