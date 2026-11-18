@@ -6,13 +6,11 @@ using System.Threading.Tasks;
 
 namespace TrabajoFinal_Fink_Szymsio_Fio
 {
-    // Un enfrentamiento puntual entre la primera carta de cada mazo.
-    // jugador1 es siempre el jugador de ESTA computadora y jugador2 el rival.
+    // Un enfrentamiento entre la primera carta de cada mazo.
+    // jugador1 es el jugador de ESTA computadora y jugador2 el rival.
     public class Ronda
     {
-        public const string OK = "#OK";
-        public const string RENDIDO = "#RENDIDO";
-        public const string PALABRA_RENDIRSE = "rendirse";
+        public const string RENDIDO = "RENDIDO";
 
         private int numero;
         private Jugador jugador1;
@@ -22,117 +20,118 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
         private List<string> atributosDisponibles;
         private string atributoElegido;
         private Jugador ganador;
-        private bool finalizada;
 
-        public Ronda(int numero, Jugador jugador1, Jugador jugador2, Comunicacion comunicacion,
-                     bool soySelector, List<string> atributosDisponibles)
+        public Ronda(int numero, Jugador jugador1, Jugador jugador2, Comunicacion comunicacion, bool soySelector, List<string> atributosDisponibles)
         {
             this.numero = numero;
             this.jugador1 = jugador1;
             this.jugador2 = jugador2;
             this.comunicacion = comunicacion;
             this.soySelector = soySelector;
-            this.atributosDisponibles = new List<string>(atributosDisponibles);
+            this.atributosDisponibles = atributosDisponibles;
             this.atributoElegido = "";
             this.ganador = null;
-            this.finalizada = false;
         }
 
-        // Cada jugador juega la primera carta de su mazo. La carta propia se envía al rival y se
-        // recibe la del rival, verificando que sea la que corresponde según el reparto.
-        // Devuelve OK o un resultado especial de Comunicacion (DESCONECTADO, ERROR, DESINCRONIZADO).
-        public string prepararCartas()
+        // Juega la ronda completa. Devuelve Comunicacion.OK si terminó bien, RENDIDO si el jugador
+        // abandonó, o el problema de comunicación (DESCONECTADO, DESINCRONIZADO o ERROR).
+        public string jugar()
         {
-            string resultado = OK;
-            Carta miCarta = jugador1.getMazo().verPrimera();
-            Carta cartaRival = jugador2.getMazo().verPrimera();
+            string resultado;
 
-            if (miCarta == null || cartaRival == null)
-            {
-                resultado = Comunicacion.ERROR;
-            }
+            // Las cartas se juegan en el orden en que fueron repartidas
+            jugador1.elegirCarta(jugador1.getMazo().verPrimera());
+            jugador2.elegirCarta(jugador2.getMazo().verPrimera());
+
+            Console.WriteLine("Tu carta:");
+            jugador1.getCartaElegida().mostrar();
+
+            if (soySelector)
+                resultado = jugarComoSelector();
             else
+                resultado = jugarComoRival();
+            return resultado;
+        }
+
+        // El selector elige el atributo, envía su carta y espera la carta del rival
+        private string jugarComoSelector()
+        {
+            string resultado = comunicacion.esperarTurno(numero);
+            if (resultado == Comunicacion.OK)
             {
-                jugador1.elegirCarta(miCarta);
-                if (comunicacion != null)
+                string atributo = elegirAtributo();
+                if (atributo == RENDIDO)
                 {
-                    if (!comunicacion.enviarCarta(numero, miCarta))
-                        resultado = Comunicacion.ERROR;
-                    else
-                        resultado = verificarCartaRival(comunicacion.recibirCarta(numero), cartaRival);
+                    resultado = RENDIDO;
                 }
-                if (resultado == OK)
-                    jugador2.elegirCarta(cartaRival);
+                else if (!comunicacion.enviarAtributo(atributo) || !comunicacion.enviarCarta(jugador1.getCartaElegida()))
+                {
+                    resultado = Comunicacion.ERROR;
+                }
+                else
+                {
+                    atributoElegido = atributo;
+                    Console.WriteLine("Esperando la carta de " + jugador2.getNombre() + "...");
+                    resultado = comunicacion.esperarTurno(numero);
+                    if (resultado == Comunicacion.OK)
+                        resultado = verificarCartaRival(comunicacion.recibirCarta());
+                    if (resultado == Comunicacion.OK)
+                        finalizarRonda();
+                }
             }
             return resultado;
         }
 
-        private string verificarCartaRival(string datoRecibido, Carta cartaEsperada)
+        // El otro jugador confía en el atributo elegido por el selector y responde con su carta
+        private string jugarComoRival()
         {
-            string resultado = OK;
-            if (Comunicacion.esEspecial(datoRecibido))
+            string resultado;
+            string atributo;
+
+            Console.WriteLine("Esperando que " + jugador2.getNombre() + " elija el atributo...");
+            resultado = comunicacion.esperarTurno(numero);
+            if (resultado == Comunicacion.OK)
             {
-                resultado = datoRecibido;
-            }
-            else
-            {
-                string[] partes = datoRecibido.Split('|');
-                int id;
-                if (!int.TryParse(partes[0], out id) || id != cartaEsperada.getId())
+                atributo = comunicacion.recibirAtributo();
+                if (!atributosDisponibles.Contains(atributo))
                     resultado = Comunicacion.DESINCRONIZADO;
+                else
+                    resultado = verificarCartaRival(comunicacion.recibirCarta());
+
+                if (resultado == Comunicacion.OK)
+                {
+                    atributoElegido = atributo;
+                    Console.WriteLine(jugador2.getNombre() + " eligió el atributo " + atributo.ToUpper() + ".");
+                    finalizarRonda();
+                    if (!comunicacion.enviarCarta(jugador1.getCartaElegida()))
+                        resultado = Comunicacion.ERROR;
+                }
             }
             return resultado;
         }
 
-        // Si a esta computadora le toca elegir, pide el atributo por teclado y lo envía.
-        // Si no, espera el atributo elegido por el rival.
-        // Devuelve el atributo, RENDIDO, o un resultado especial de Comunicacion.
+        // La carta que mandó el rival tiene que ser la primera de su mazo; si no, los datos no
+        // corresponden al turno esperado.
+        private string verificarCartaRival(string nombreRecibido)
+        {
+            string resultado = Comunicacion.OK;
+            if (nombreRecibido != jugador2.getCartaElegida().getNombre())
+                resultado = Comunicacion.DESINCRONIZADO;
+            return resultado;
+        }
+
+        // Se elige con el menú. Solo aparecen los atributos que no están bloqueados.
         public string elegirAtributo()
         {
+            Menu menu = new Menu();
             string atributo;
-            if (soySelector)
-            {
-                atributo = pedirAtributo();
-                if (atributo != RENDIDO && comunicacion != null && !comunicacion.enviarAtributo(numero, atributo))
-                    atributo = Comunicacion.ERROR;
-            }
-            else
-            {
-                Console.WriteLine();
-                Console.WriteLine("Esperando el atributo elegido por " + jugador2.getNombre() + "...");
-                atributo = comunicacion.recibirAtributo(numero);
-                if (!Comunicacion.esEspecial(atributo) && !atributosDisponibles.Contains(atributo))
-                    atributo = Comunicacion.DESINCRONIZADO;
-            }
 
-            if (atributo != RENDIDO && !Comunicacion.esEspecial(atributo))
-                establecerAtributo(atributo);
-            return atributo;
-        }
-
-        private string pedirAtributo()
-        {
-            string atributo;
-            if (Consola.puedeUsarMenu())
-                atributo = pedirAtributoConMenu();
-            else
-                atributo = pedirAtributoPorTexto();
-            return atributo;
-        }
-
-        // Se elige con las flechas usando la clase Menu. La última opción es rendirse.
-        private string pedirAtributoConMenu()
-        {
-            List<string> opciones = new List<string>();
-            string atributo;
-            int elegida;
+            foreach (string disponible in atributosDisponibles)
+                menu.agregarOpcion(disponible.ToUpper() + " (" + jugador1.getCartaElegida().getValor(disponible) + ")");
+            menu.agregarOpcion("Rendirse");
 
             Console.WriteLine();
-            foreach (string disponible in atributosDisponibles)
-                opciones.Add(disponible.ToUpper() + " (" + jugador1.getCartaElegida().getValor(disponible) + ")");
-            opciones.Add("Rendirse (abandonar la partida)");
-
-            elegida = Consola.elegirConMenu("Te toca elegir el atributo", opciones);
+            int elegida = menu.elegirOpcion("Elegí el atributo");
             if (elegida == atributosDisponibles.Count)
                 atributo = RENDIDO;
             else
@@ -140,112 +139,62 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
             return atributo;
         }
 
-        private string pedirAtributoPorTexto()
+        // Solo se puede usar un atributo disponible en esta ronda
+        public bool establecerAtributo(string atributo)
         {
-            string atributo = null;
-            string texto;
-
-            Console.WriteLine();
-            Console.WriteLine("Te toca elegir el atributo. Opciones disponibles:");
-            for (int i = 0; i < atributosDisponibles.Count; i++)
-            {
-                Console.WriteLine("  " + (i + 1) + ". " + atributosDisponibles[i].ToUpper()
-                    + " (" + jugador1.getCartaElegida().getValor(atributosDisponibles[i]) + ")");
-            }
-            Console.WriteLine("  (escribí \"" + PALABRA_RENDIRSE + "\" para abandonar la partida)");
-
-            while (atributo == null)
-            {
-                Console.Write("Atributo (número o nombre): ");
-                texto = Console.ReadLine();
-                atributo = interpretarAtributo(texto);
-                if (atributo == null)
-                    Console.WriteLine("Opción inválida o atributo bloqueado. Intentá de nuevo.");
-            }
-            return atributo;
+            bool valido = atributosDisponibles.Contains(atributo);
+            if (valido)
+                atributoElegido = atributo;
+            return valido;
         }
 
-        // Convierte lo que escribió el usuario en un atributo disponible. Devuelve null si no es válido.
-        public string interpretarAtributo(string texto)
-        {
-            string atributo = null;
-            int numeroOpcion;
-
-            if (texto == null || Personaje.normalizarAtributo(texto) == PALABRA_RENDIRSE)
-            {
-                atributo = RENDIDO;
-            }
-            else if (int.TryParse(texto.Trim(), out numeroOpcion))
-            {
-                if (numeroOpcion >= 1 && numeroOpcion <= atributosDisponibles.Count)
-                    atributo = atributosDisponibles[numeroOpcion - 1];
-            }
-            else
-            {
-                string normalizado = Personaje.normalizarAtributo(texto);
-                if (atributosDisponibles.Contains(normalizado))
-                    atributo = normalizado;
-            }
-            return atributo;
-        }
-
-        public void establecerAtributo(string atributo)
-        {
-            string normalizado = Personaje.normalizarAtributo(atributo);
-            if (!atributosDisponibles.Contains(normalizado))
-                throw new ArgumentException("El atributo " + atributo + " no está disponible en esta ronda.");
-            atributoElegido = normalizado;
-        }
-
-        // Devuelve el jugador cuya carta tiene el mayor valor en el atributo elegido, o null si empatan.
+        // Devuelve el jugador con el valor mayor en el atributo elegido, o null si empatan
         public Jugador compararCartas()
         {
             Jugador resultadoGanador = null;
             int resultado;
-
-            if (atributoElegido == "")
-                throw new InvalidOperationException("Todavía no se eligió el atributo de la ronda.");
-
             resultado = jugador1.getCartaElegida().compararAtributo(jugador2.getCartaElegida(), atributoElegido);
             if (resultado > 0)
+            {
                 resultadoGanador = jugador1;
+            }
             else if (resultado < 0)
+            {
                 resultadoGanador = jugador2;
+            }
             return resultadoGanador;
         }
 
-        // Aplica el resultado: si hay ganador, absorbe la carta del rival y ambas van al final de su mazo;
-        // si hay empate, cada carta vuelve al final del mazo de su dueño.
+        // El ganador absorbe la carta del rival y las dos van al final de su mazo.
+        // Si empatan, cada carta vuelve al final del mazo de su dueño.
         public void finalizarRonda()
         {
-            Carta carta1;
-            Carta carta2;
+            Jugador perdedor;
+            Carta cartaGanadora;
+            Carta cartaPerdedora;
 
-            if (!finalizada)
+            ganador = compararCartas();
+            if (ganador == null)
             {
-                carta1 = jugador1.getCartaElegida();
-                carta2 = jugador2.getCartaElegida();
-                ganador = compararCartas();
-                if (ganador == null)
-                {
-                    jugador1.getMazo().quitarCarta(carta1);
-                    jugador1.getMazo().agregarCarta(carta1);
-                    jugador2.getMazo().quitarCarta(carta2);
-                    jugador2.getMazo().agregarCarta(carta2);
-                }
+                jugador1.getMazo().quitarCarta(jugador1.getCartaElegida());
+                jugador1.getMazo().agregarCarta(jugador1.getCartaElegida());
+                jugador2.getMazo().quitarCarta(jugador2.getCartaElegida());
+                jugador2.getMazo().agregarCarta(jugador2.getCartaElegida());
+            }
+            else
+            {
+                if (ganador == jugador1)
+                    perdedor = jugador2;
                 else
-                {
-                    Jugador perdedor = (ganador == jugador1) ? jugador2 : jugador1;
-                    Carta cartaGanadora = ganador.getCartaElegida();
-                    Carta cartaPerdedora = perdedor.getCartaElegida();
+                    perdedor = jugador1;
 
-                    perdedor.getMazo().quitarCarta(cartaPerdedora);
-                    ganador.getMazo().quitarCarta(cartaGanadora);
-                    ganador.getMazo().agregarCarta(cartaGanadora);
-                    ganador.getMazo().agregarCarta(cartaPerdedora);
-                    ganador.sumarPunto();
-                }
-                finalizada = true;
+                cartaGanadora = ganador.getCartaElegida();
+                cartaPerdedora = perdedor.getCartaElegida();
+                perdedor.getMazo().quitarCarta(cartaPerdedora);
+                ganador.getMazo().quitarCarta(cartaGanadora);
+                ganador.getMazo().agregarCarta(cartaGanadora);
+                ganador.getMazo().agregarCarta(cartaPerdedora);
+                ganador.sumarPunto();
             }
         }
 
@@ -262,11 +211,6 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
         public Jugador getGanador()
         {
             return ganador;
-        }
-
-        public bool esEmpate()
-        {
-            return finalizada && ganador == null;
         }
 
         public bool getSoySelector()

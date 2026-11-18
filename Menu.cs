@@ -52,6 +52,18 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
             return (opciones[opcionElegida]);
         }
 
+        // Agregado para el Juego Guerra: igual que menuInteractuar, pero devuelve la posición de la
+        // opción elegida y deja el cursor visible debajo del menú para seguir escribiendo.
+        public int elegirOpcion(string titulo)
+        {
+            int inicioMenu = mostrarMenu(titulo);
+            int opcionElegida = seleccionar(inicioMenu, ConsoleColor.Cyan, ConsoleColor.Black);
+            Console.SetCursorPosition(0, inicioMenu + opciones.Count);
+            Console.CursorVisible = true;
+            Console.WriteLine();
+            return opcionElegida;
+        }
+
         public int mostrarMenu(string titulo)
         {
             int lineaNumero = Console.CursorTop + 3;

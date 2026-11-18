@@ -1,192 +1,101 @@
-﻿using System.Text;
-
-namespace TrabajoFinal_Fink_Szymsio_Fio
+﻿namespace TrabajoFinal_Fink_Szymsio_Fio
 {
     internal class Program
     {
-        private const string CARPETA_PERSONAJES = "Personajes";
-
-        private static Partida partidaActual = null;
+        private const string CREAR = "Crear partida (esta PC es el SERVIDOR)";
+        private const string UNIRSE = "Unirse a una partida (CLIENTE)";
+        private const string VER_CARTAS = "Ver cartas";
+        private const string PRUEBAS = "Ejecutar pruebas";
+        private const string SALIR = "Salir";
 
         static void Main(string[] args)
         {
-            int opcion;
-            GestorDeCartas gestor;
+            GestorDeCartas gestor = new GestorDeCartas();
+            Menu menu = new Menu();
+            string opcion;
 
-            Console.OutputEncoding = Encoding.UTF8;
-            Console.InputEncoding = Encoding.UTF8;
+            gestor.cargarCartas(Path.Combine(Directory.GetCurrentDirectory(), "Cartas"));
 
-            // dotnet run -- --pruebas  ejecuta las pruebas automáticas y termina
-            if (args.Length > 0 && args[0] == "--pruebas")
-            {
-                Environment.Exit(Pruebas.ejecutarTodas() ? 0 : 1);
-            }
-
-            Console.CancelKeyPress += alCancelar;
-            mostrarTitulo();
-            gestor = cargarPersonajes();
+            menu.agregarOpcion(CREAR);
+            menu.agregarOpcion(UNIRSE);
+            menu.agregarOpcion(VER_CARTAS);
+            menu.agregarOpcion(PRUEBAS);
+            menu.agregarOpcion(SALIR);
 
             do
             {
-                opcion = elegirOpcionPrincipal();
-                switch (opcion)
-                {
-                    case 1:
-                        jugar(gestor, true);
-                        break;
-                    case 2:
-                        jugar(gestor, false);
-                        break;
-                    case 3:
-                        mostrarCartas(gestor);
-                        break;
-                    case 4:
-                        Pruebas.ejecutarTodas();
-                        Consola.pausa();
-                        break;
-                }
-            } while (opcion != 0);
+                Console.Clear();
+                opcion = menu.menuInteractuar("===== JUEGO GUERRA =====");
+                Console.CursorVisible = true;
+                Console.Clear();
 
-            Console.WriteLine("¡Hasta la próxima!");
-        }
+                if (opcion == CREAR)
+                    jugar(gestor, true);
+                else if (opcion == UNIRSE)
+                    jugar(gestor, false);
+                else if (opcion == VER_CARTAS)
+                    mostrarCartas(gestor);
+                else if (opcion == PRUEBAS)
+                    Pruebas.ejecutarTodas();
 
-        static void mostrarTitulo()
-        {
-            Console.WriteLine("""
-             ==============================================
-                  _ _   _ _____ ____  ___
-                 | | | | | ____/ ___|/ _ \
-              _  | | | | |  _|| |  _| | | |
-             | |_| | |_| | |__| |_| | |_| |
-              \___/ \___/|_____\____|\___/
-                   G   U   E   R   R   A
-             ==============================================
-            """);
-        }
+                if (opcion != SALIR)
+                    pausa();
+            } while (opcion != SALIR);
 
-        // Devuelve 1 a 4 según la opción, o 0 para salir.
-        static int elegirOpcionPrincipal()
-        {
-            int opcion;
-            if (Consola.puedeUsarMenu())
-            {
-                List<string> opciones = new List<string>();
-                opciones.Add("Crear partida (esta PC comparte la carpeta - SERVIDOR)");
-                opciones.Add("Unirse a una partida (CLIENTE)");
-                opciones.Add("Ver cartas disponibles");
-                opciones.Add("Ejecutar pruebas");
-                opciones.Add("Salir");
-                Console.WriteLine();
-                opcion = Consola.elegirConMenu("JUEGO GUERRA", opciones) + 1;
-                if (opcion == opciones.Count)
-                    opcion = 0;
-            }
-            else
-            {
-                mostrarMenu();
-                opcion = Consola.leerOpcion("Opción: ", 0, 4, 0);
-            }
-            return opcion;
-        }
-
-        static void mostrarMenu()
-        {
-            Console.WriteLine();
-            Console.WriteLine("===== JUEGO GUERRA =====");
-            Console.WriteLine("1. Crear partida (esta PC comparte la carpeta - SERVIDOR)");
-            Console.WriteLine("2. Unirse a una partida (CLIENTE)");
-            Console.WriteLine("3. Ver cartas disponibles");
-            Console.WriteLine("4. Ejecutar pruebas");
-            Console.WriteLine("0. Salir");
-        }
-
-        static GestorDeCartas cargarPersonajes()
-        {
-            GestorDeCartas gestor = new GestorDeCartas();
-            string carpeta = Path.Combine(AppContext.BaseDirectory, CARPETA_PERSONAJES);
-            int cantidad = gestor.cargarCartas(carpeta);
-
-            Console.WriteLine("Carpeta de personajes: " + carpeta);
-            gestor.mostrarErrores();
-            Console.WriteLine("Personajes válidos cargados: " + cantidad);
-            if (!gestor.hayCartasSuficientes())
-                Console.WriteLine("ATENCIÓN: se necesitan al menos " + GestorDeCartas.MINIMO_DE_CARTAS + " personajes válidos para jugar.");
-            return gestor;
+            Console.WriteLine("Fin del programa.");
         }
 
         static void jugar(GestorDeCartas gestor, bool esServidor)
         {
-            string nombre;
-            string carpeta;
+            string nombre = leerTextoObligatorio("Tu nombre: ");
+            string servidor = "";
 
-            if (!gestor.hayCartasSuficientes())
-            {
-                Console.WriteLine("No se puede jugar: no hay suficientes personajes válidos.");
-            }
-            else
-            {
-                nombre = Consola.leerTexto("Tu nombre: ", null);
-                if (esServidor)
-                    carpeta = pedirCarpetaServidor();
-                else
-                    carpeta = pedirCarpetaCliente();
+            if (!esServidor)
+                servidor = leerTextoObligatorio("Nombre de la PC servidor: ");
 
-                if (carpeta != null)
-                {
-                    partidaActual = new Partida(nombre, gestor, new Comunicacion(esServidor, carpeta));
-                    partidaActual.iniciar();
-                    partidaActual = null;
-                }
-            }
-            Consola.pausa();
-        }
-
-        static string pedirCarpetaServidor()
-        {
-            string porDefecto = CarpetaCompartida.carpetaLocalPorDefecto();
-            string carpeta = Consola.leerTexto("Carpeta a compartir [Enter = " + porDefecto + "]: ", porDefecto);
-
-            if (!CarpetaCompartida.preparar(carpeta))
-                carpeta = null;
-            else
-                Console.WriteLine("Decile a tu rival que se conecte a la PC: " + Environment.MachineName);
-            return carpeta;
-        }
-
-        static string pedirCarpetaCliente()
-        {
-            string dato = Consola.leerTexto("Nombre de la PC servidor (o ruta completa de la carpeta compartida): ", null);
-            string carpeta = null;
-            if (dato != null)
-                carpeta = CarpetaCompartida.rutaDelServidor(dato);
-            return carpeta;
+            Partida partida = new Partida(nombre, gestor, new Comunicacion(esServidor, servidor));
+            partida.iniciar();
         }
 
         static void mostrarCartas(GestorDeCartas gestor)
         {
             List<Carta> cartas = gestor.getCartasDisponibles();
+
+            if (gestor.hayErrores())
+                gestor.mostrarErrores();
+
             if (cartas.Count == 0)
             {
                 Console.WriteLine("No hay cartas disponibles.");
             }
             else
             {
-                foreach (Carta carta in cartas)
+                for (int i = 0; i < cartas.Count; i++)
                 {
-                    carta.mostrar();
-                    Console.WriteLine("Atributo principal: " + carta.getPersonaje().getAtributoPrincipal().ToUpper()
-                        + "  |  Atributo más bajo: " + carta.getPersonaje().getAtributoMasBajo().ToUpper());
-                    Consola.pausa();
+                    cartas[i].mostrar();
+                    pausa();
                 }
-                Console.WriteLine("Cantidad de cartas: " + cartas.Count);
+                Console.WriteLine("\nCantidad de cartas: " + cartas.Count);
             }
         }
 
-        // Si el jugador cierra con Ctrl+C durante una partida, se avisa al rival que abandonó.
-        static void alCancelar(object sender, ConsoleCancelEventArgs e)
+        static string leerTextoObligatorio(string mensaje)
         {
-            if (partidaActual != null)
-                partidaActual.abandonar();
+            Console.Write(mensaje);
+            string texto = Console.ReadLine();
+            while (texto == null || texto.Trim() == "")
+            {
+                Console.Write("El dato no puede estar vacio. Ingrese nuevamente: ");
+                texto = Console.ReadLine();
+            }
+            return texto.Trim();
+        }
+
+        private static void pausa()
+        {
+            Console.WriteLine("\n\nPresione Enter para continuar: ");
+            Console.ReadLine();
+            Console.Clear();
         }
     }
 }

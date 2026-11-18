@@ -6,16 +6,15 @@ using System.Threading.Tasks;
 
 namespace TrabajoFinal_Fink_Szymsio_Fio
 {
-    // Controla el juego completo: conexión, reparto, rondas, atributos bloqueados, turno y resultado.
-    // jugador1 es el jugador de ESTA computadora y jugador2 el rival.
-    // turnoActual indica quién elige el atributo en la próxima ronda (1 = yo, 2 = rival).
+    // Controla la partida completa. jugador1 es el jugador de ESTA computadora y jugador2 el rival.
+    // turnoActual indica quién elige el atributo en la próxima ronda: 1 = yo, 2 = el rival.
     public class Partida
     {
         public const string INICIANDO = "INICIANDO";
         public const string EN_JUEGO = "EN_JUEGO";
         public const string FINALIZADA = "FINALIZADA";
-        public const string DESCONECTADO = "DESCONECTADO";   // el rival abandonó: gana jugador1
-        public const string RENDIDO = "RENDIDO";             // este jugador abandonó: gana jugador2
+        public const string DESCONECTADO = "DESCONECTADO";   // el rival se fue: gana jugador1
+        public const string RENDIDO = "RENDIDO";             // este jugador se rindió: gana jugador2
         public const string ERROR = "ERROR";
 
         private Jugador jugador1;
@@ -26,7 +25,6 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
         private GestorDeCartas gestorDeCartas;
         private Comunicacion comunicacion;
         private List<string> atributosBloqueados;
-        private Random azar;
 
         public Partida(string nombreJugador, GestorDeCartas gestorDeCartas, Comunicacion comunicacion)
         {
@@ -38,10 +36,9 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
             this.gestorDeCartas = gestorDeCartas;
             this.comunicacion = comunicacion;
             this.atributosBloqueados = new List<string>();
-            this.azar = new Random();
         }
 
-        // Constructor para las pruebas: permite armar una partida sin conexión.
+        // Constructor para las pruebas (sin conexión)
         public Partida(Jugador jugador1, Jugador jugador2, string estado)
         {
             this.jugador1 = jugador1;
@@ -52,41 +49,27 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
             this.gestorDeCartas = null;
             this.comunicacion = null;
             this.atributosBloqueados = new List<string>();
-            this.azar = new Random();
         }
 
-        // Ejecuta el flujo completo de la partida.
         public void iniciar()
         {
-            estado = INICIANDO;
-            if (prepararPartida())
-            {
-                repartirCartas();
-                turnoActual = sortearSelector();
-                estado = EN_JUEGO;
-                mostrarInicio();
-                while (estado == EN_JUEGO)
-                {
-                    iniciarRonda();
-                }
-            }
-            finalizar();
-        }
-
-        // Conecta con el rival, verifica que ambos tengan las mismas cartas y acuerda la semilla.
-        private bool prepararPartida()
-        {
             string nombreRival;
-            int semilla;
+            estado = INICIANDO;
 
-            if (!gestorDeCartas.hayCartasSuficientes())
+            // Si algún archivo de cartas tiene errores, se informa y la partida se da por terminada
+            if (gestorDeCartas.hayErrores())
             {
-                Console.WriteLine("No hay suficientes personajes válidos para jugar (mínimo " + GestorDeCartas.MINIMO_DE_CARTAS + ").");
+                gestorDeCartas.mostrarErrores();
+                Console.WriteLine("La partida se da por terminada. Corregí los archivos y volvé a intentar.");
+                estado = ERROR;
+            }
+            else if (gestorDeCartas.getCartasDisponibles().Count < 2)
+            {
+                Console.WriteLine("Se necesitan al menos 2 cartas para jugar. La partida se da por terminada.");
                 estado = ERROR;
             }
             else
             {
-                Console.WriteLine("Archivo compartido: " + comunicacion.getRutaArchivo());
                 nombreRival = comunicacion.conectar(jugador1.getNombre());
                 if (nombreRival == null)
                 {
@@ -95,81 +78,162 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
                 else
                 {
                     jugador2 = new Jugador(nombreRival);
-                    Console.WriteLine("Conectado con " + jugador2.getNombre() + ". Verificando las cartas...");
-                    if (!comunicacion.sincronizar(gestorDeCartas.calcularResumen()))
+                    Console.WriteLine("Conectado con " + jugador2.getNombre() + ".");
+                    if (repartirCartas())
                     {
-                        Console.WriteLine("No se pudo sincronizar con el otro jugador: ambas computadoras deben tener");
-                        Console.WriteLine("exactamente los mismos archivos de personajes en la carpeta Personajes.");
-                        estado = ERROR;
+                        estado = EN_JUEGO;
+                        mostrarInicio();
+                        while (estado == EN_JUEGO)
+                        {
+                            iniciarRonda();
+                        }
+                        finalizar();
                     }
                     else
                     {
-                        semilla = comunicacion.acordarSemilla();
-                        if (semilla == -1)
-                            estado = ERROR;
-                        else
-                            azar = new Random(semilla);
+                        estado = ERROR;
+                        comunicacion.informarError();
                     }
                 }
             }
-            return estado == INICIANDO;
         }
 
-        // Reparte las cartas. Se arma la lista siempre en el orden SERVIDOR, CLIENTE para que en
-        // las dos computadoras cada jugador reciba exactamente las mismas cartas.
-        public void repartirCartas()
+        // El servidor mezcla, reparte y sortea quién empieza; después guarda todo en el archivo compartido.
+        // El cliente lee ese reparto y arma los mismos mazos con sus archivos de cartas.
+        public bool repartirCartas()
         {
-            List<Jugador> jugadores = new List<Jugador>();
-            jugadores.Add(getJugadorServidor());
-            jugadores.Add(getJugadorCliente());
-            gestorDeCartas.repartirCartas(jugadores, azar);
+            bool repartido;
+            string selector;
+
+            if (comunicacion.esServidor())
+            {
+                List<Jugador> jugadores = new List<Jugador>();
+                jugadores.Add(jugador1);
+                jugadores.Add(jugador2);
+                gestorDeCartas.repartirCartas(jugadores);
+
+                if (new Random().Next(2) == 0)
+                    selector = Comunicacion.SERVIDOR;
+                else
+                    selector = Comunicacion.CLIENTE;
+
+                repartido = comunicacion.publicarReparto(nombresDeCartas(jugador1), nombresDeCartas(jugador2), selector);
+            }
+            else
+            {
+                Console.WriteLine("Esperando el reparto de cartas...");
+                repartido = comunicacion.esperarReparto();
+                if (repartido)
+                {
+                    // El servidor es el rival (jugador2) y el cliente soy yo (jugador1)
+                    repartido = armarMazo(jugador2, comunicacion.recibirDatos("CARTAS_SERVIDOR"))
+                             && armarMazo(jugador1, comunicacion.recibirDatos("CARTAS_CLIENTE"));
+                    if (!repartido)
+                        Console.WriteLine("Los archivos de cartas de las dos computadoras no son idénticos.");
+                }
+                selector = comunicacion.recibirDatos("SELECTOR_INICIAL");
+            }
+
+            if (selector == comunicacion.getRol())
+                turnoActual = 1;
+            else
+                turnoActual = 2;
+            return repartido;
         }
 
-        // Sortea quién elige el atributo en la primera ronda. Devuelve 1 (yo) o 2 (rival).
-        public int sortearSelector()
+        private string nombresDeCartas(Jugador jugador)
         {
-            string rolSorteado = azar.Next(2) == 0 ? Comunicacion.SERVIDOR : Comunicacion.CLIENTE;
-            return rolSorteado == comunicacion.getRol() ? 1 : 2;
+            string nombres = "";
+            foreach (Carta carta in jugador.getMazo().getCartas())
+            {
+                if (nombres != "")
+                    nombres += ";";
+                nombres += carta.getNombre();
+            }
+            return nombres;
         }
 
-        // Crea y ejecuta una ronda, aplica el resultado y actualiza el turno y el estado.
+        private bool armarMazo(Jugador jugador, string nombres)
+        {
+            bool correcto = nombres != "";
+            foreach (string nombre in nombres.Split(';'))
+            {
+                Carta carta = gestorDeCartas.buscarCarta(nombre);
+                if (carta == null)
+                    correcto = false;
+                else
+                    jugador.getMazo().agregarCarta(carta);
+            }
+            return correcto;
+        }
+
         public void iniciarRonda()
         {
             Ronda ronda = new Ronda(rondas.Count + 1, jugador1, jugador2, comunicacion, turnoActual == 1, getAtributosDisponibles());
             string resultado;
-            string atributo;
-            Jugador ganador;
 
             rondas.Add(ronda);
-            mostrarEncabezadoRonda(ronda);
+            mostrarEncabezado(ronda);
+            resultado = ronda.jugar();
 
-            resultado = ronda.prepararCartas();
-            if (resultado != Ronda.OK)
+            if (resultado == Comunicacion.OK)
             {
-                manejarProblema(resultado);
-            }
-            else
-            {
-                jugador1.getCartaElegida().mostrar(atributosBloqueados);
-                atributo = ronda.elegirAtributo();
-                if (atributo == Ronda.RENDIDO || Comunicacion.esEspecial(atributo))
+                Jugador ganador = ronda.getGanador();
+                mostrarResultado(ronda);
+                bloquearAtributo(ronda.getAtributoElegido());
+
+                // El ganador elige en la próxima ronda. Si hay empate, sigue eligiendo el mismo jugador.
+                if (ganador == jugador1)
+                    turnoActual = 1;
+                else if (ganador == jugador2)
+                    turnoActual = 2;
+
+                if (jugador1.getMazo().estaVacio() || jugador2.getMazo().estaVacio())
                 {
-                    manejarProblema(atributo);
+                    estado = FINALIZADA;
                 }
                 else
                 {
-                    ganador = ronda.compararCartas();
-                    ronda.finalizarRonda();
-                    mostrarResultado(ronda, ganador);
-                    bloquearAtributo(atributo);
-                    actualizarTurno(ganador);
-                    registrarEnArchivo(ronda, ganador);
-                    if (jugador1.sinCartas() || jugador2.sinCartas())
-                        estado = FINALIZADA;
-                    else
-                        Consola.pausa();
+                    if (ronda.getSoySelector() && !pasarRonda(ronda, ganador))
+                    {
+                        Console.WriteLine("No se pudo escribir en el archivo compartido. Se cancela la partida.");
+                        estado = ERROR;
+                    }
+                    pausa();
                 }
             }
+            else
+            {
+                manejarProblema(resultado);
+            }
+        }
+
+        // El selector guarda el resultado y le pasa el turno al próximo selector
+        private bool pasarRonda(Ronda ronda, Jugador ganador)
+        {
+            string proximoSelector;
+            string nombreGanador = "EMPATE";
+            int puntosServidor;
+            int puntosCliente;
+
+            if (turnoActual == 1)
+                proximoSelector = comunicacion.getRol();
+            else
+                proximoSelector = comunicacion.getRolRival();
+            if (ganador != null)
+                nombreGanador = ganador.getNombre();
+
+            if (comunicacion.esServidor())
+            {
+                puntosServidor = jugador1.getPuntos();
+                puntosCliente = jugador2.getPuntos();
+            }
+            else
+            {
+                puntosServidor = jugador2.getPuntos();
+                puntosCliente = jugador1.getPuntos();
+            }
+            return comunicacion.pasarRonda(ronda.getNumero() + 1, proximoSelector, nombreGanador, puntosServidor, puntosCliente);
         }
 
         private void manejarProblema(string resultado)
@@ -178,46 +242,33 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
             {
                 estado = RENDIDO;
                 comunicacion.rendirse();
-                Console.WriteLine("Abandonaste la partida.");
+                Console.WriteLine("Te rendiste.");
             }
             else if (resultado == Comunicacion.DESCONECTADO)
             {
                 estado = DESCONECTADO;
-                Console.WriteLine("El rival se desconectó o abandonó la partida.");
+                Console.WriteLine(jugador2.getNombre() + " se desconectó: se da por rendido.");
             }
             else if (resultado == Comunicacion.DESINCRONIZADO)
             {
                 estado = ERROR;
+                comunicacion.informarError();
                 Console.WriteLine("La información recibida no corresponde al turno esperado. Se cancela la partida.");
             }
             else
             {
                 estado = ERROR;
-                Console.WriteLine("Se produjo un error de comunicación. Se cancela la partida.");
+                Console.WriteLine("Error de comunicación. Se cancela la partida.");
             }
         }
 
-        // El ganador de la ronda elige en la siguiente. Si hay empate, se sortea (igual en ambas computadoras).
-        private void actualizarTurno(Jugador ganador)
-        {
-            if (ganador == jugador1)
-                turnoActual = 1;
-            else if (ganador == jugador2)
-                turnoActual = 2;
-            else
-                turnoActual = sortearSelector();
-        }
-
-        // El atributo usado queda bloqueado. Cuando se usaron los seis, se desbloquean todos.
+        // Después de cada ronda el atributo elegido queda bloqueado.
+        // Cuando ya no queda ninguno disponible, se desbloquean todos.
         public void bloquearAtributo(string atributo)
         {
-            if (!atributosBloqueados.Contains(atributo))
-                atributosBloqueados.Add(atributo);
-            if (atributosBloqueados.Count >= Personaje.ATRIBUTOS.Length)
-            {
+            atributosBloqueados.Add(atributo);
+            if (atributosBloqueados.Count == Personaje.ATRIBUTOS.Length)
                 atributosBloqueados.Clear();
-                Console.WriteLine("Se usaron todos los atributos: vuelven a estar disponibles.");
-            }
         }
 
         public List<string> getAtributosDisponibles()
@@ -231,20 +282,8 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
             return disponibles;
         }
 
-        // Solo el servidor escribe el resumen de la ronda, para que haya una única versión del estado.
-        private void registrarEnArchivo(Ronda ronda, Jugador ganador)
-        {
-            if (comunicacion.esServidor())
-            {
-                string nombreGanador = ganador == null ? "EMPATE" : ganador.getNombre();
-                string selector = turnoActual == 1 ? comunicacion.getRol() : comunicacion.getRolRival();
-                comunicacion.registrarRonda(ronda.getNumero(), selector,
-                    getJugadorServidor().cantidadCartas(), getJugadorCliente().cantidadCartas(),
-                    getJugadorServidor().getPuntos(), getJugadorCliente().getPuntos(), nombreGanador);
-            }
-        }
-
-        // Devuelve el ganador de la partida, o null si terminó por un error.
+        // Pierde el que se queda sin cartas. Si el rival se desconecta, gana el que permanece.
+        // Devuelve null si la partida terminó por un error.
         public Jugador determinarGanador()
         {
             Jugador ganador = null;
@@ -252,13 +291,10 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
                 ganador = jugador1;
             else if (estado == RENDIDO)
                 ganador = jugador2;
-            else if (estado == FINALIZADA)
-            {
-                if (jugador1.sinCartas())
-                    ganador = jugador2;
-                else if (jugador2.sinCartas())
-                    ganador = jugador1;
-            }
+            else if (jugador1.getMazo().estaVacio())
+                ganador = jugador2;
+            else if (jugador2.getMazo().estaVacio())
+                ganador = jugador1;
             return ganador;
         }
 
@@ -266,7 +302,10 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
         {
             Jugador ganador = determinarGanador();
 
-            Consola.titulo("FIN DE LA PARTIDA");
+            Console.WriteLine();
+            Console.WriteLine("================================");
+            Console.WriteLine("       FIN DE LA PARTIDA");
+            Console.WriteLine("================================");
             if (ganador == null)
             {
                 Console.WriteLine("La partida terminó sin ganador.");
@@ -274,120 +313,73 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
             else
             {
                 Console.WriteLine("Ganador: " + ganador.getNombre());
-                Console.WriteLine(ganador == jugador1 ? "¡FELICITACIONES, GANASTE!" : "Perdiste. ¡Suerte la próxima!");
+                // El que eligió en la última ronda guarda el final de la partida en el archivo
+                if (estado == FINALIZADA && rondas[rondas.Count - 1].getSoySelector())
+                    comunicacion.finalizar(ganador.getNombre());
             }
-            if (jugador2 != null)
-            {
-                Console.WriteLine("Rondas jugadas: " + rondas.Count);
-                Console.WriteLine(jugador1.getNombre() + ": " + jugador1.getPuntos() + " rondas ganadas, " + jugador1.cantidadCartas() + " cartas");
-                Console.WriteLine(jugador2.getNombre() + ": " + jugador2.getPuntos() + " rondas ganadas, " + jugador2.cantidadCartas() + " cartas");
-            }
-
-            // Si este jugador se rindió, rendirse() ya avisó. Si el cliente nunca llegó a conectarse,
-            // no hay nada que avisar (y el archivo puede ni siquiera estar accesible).
-            if (comunicacion != null && estado != RENDIDO && (jugador2 != null || comunicacion.esServidor()))
-            {
-                string estadoArchivo = estado == ERROR ? Comunicacion.ESTADO_ERROR : Comunicacion.ESTADO_FINALIZADA;
-                comunicacion.finalizarPartida(estadoArchivo, ganador == null ? "" : ganador.getNombre());
-            }
-            if (estado != ERROR)
-                estado = FINALIZADA;
+            Console.WriteLine("Rondas jugadas: " + rondas.Count);
+            Console.WriteLine(jugador1.getNombre() + ": " + jugador1.getPuntos() + " rondas ganadas");
+            Console.WriteLine(jugador2.getNombre() + ": " + jugador2.getPuntos() + " rondas ganadas");
         }
-
-        // Se usa si el usuario cierra el programa con Ctrl+C en medio de la partida.
-        public void abandonar()
-        {
-            if (comunicacion != null && (estado == EN_JUEGO || estado == INICIANDO))
-            {
-                estado = RENDIDO;
-                comunicacion.rendirse();
-            }
-        }
-
-        // ============================================================
-        // Pantallas
-        // ============================================================
 
         private void mostrarInicio()
         {
-            Consola.titulo("COMIENZA LA PARTIDA");
-            Console.WriteLine(jugador1.getNombre() + " vs " + jugador2.getNombre());
-            Console.WriteLine("Cada jugador recibió " + jugador1.cantidadCartas() + " cartas.");
-            Console.WriteLine("Sorteo del primer turno: elige " + (turnoActual == 1 ? "VOS" : jugador2.getNombre()) + ".");
-            Consola.pausa();
-        }
-
-        private void mostrarEncabezadoRonda(Ronda ronda)
-        {
-            Consola.limpiar();
-            Consola.titulo("RONDA " + ronda.getNumero());
-            Console.WriteLine("Tus cartas: " + jugador1.cantidadCartas() + "   |   Cartas de " + jugador2.getNombre() + ": " + jugador2.cantidadCartas());
-            Console.WriteLine("Rondas ganadas: vos " + jugador1.getPuntos() + " - " + jugador2.getPuntos() + " " + jugador2.getNombre());
-            Console.WriteLine("Elige el atributo: " + (ronda.getSoySelector() ? "VOS" : jugador2.getNombre()));
             Console.WriteLine();
-            Console.WriteLine("Tu carta para esta ronda:");
+            Console.WriteLine("Cada jugador recibió " + jugador1.getMazo().cantidadCartas() + " cartas.");
+            if (turnoActual == 1)
+                Console.WriteLine("Por sorteo, empezás eligiendo vos.");
+            else
+                Console.WriteLine("Por sorteo, empieza eligiendo " + jugador2.getNombre() + ".");
+            pausa();
         }
 
-        private void mostrarResultado(Ronda ronda, Jugador ganador)
+        private void mostrarEncabezado(Ronda ronda)
         {
+            Console.WriteLine("===== RONDA " + ronda.getNumero() + " =====");
+            Console.WriteLine("Tus cartas: " + jugador1.getMazo().cantidadCartas() + " | Cartas de " + jugador2.getNombre() + ": " + jugador2.getMazo().cantidadCartas());
+            if (ronda.getSoySelector())
+                Console.WriteLine("Elegís el atributo vos.");
+            else
+                Console.WriteLine("Elige el atributo " + jugador2.getNombre() + ".");
+        }
+
+        // Se informa el ganador. La carta del rival solo se muestra si se la absorbe.
+        private void mostrarResultado(Ronda ronda)
+        {
+            Jugador ganador = ronda.getGanador();
             string atributo = ronda.getAtributoElegido();
-            Carta miCarta = jugador1.getCartaElegida();
-            Carta cartaRival = jugador2.getCartaElegida();
 
             Console.WriteLine();
-            Console.WriteLine("Atributo elegido: " + atributo.ToUpper() + "  (tu valor: " + miCarta.getValor(atributo) + ")");
+            Console.WriteLine("Atributo: " + atributo.ToUpper() + " (tu carta: " + jugador1.getCartaElegida().getValor(atributo) + ")");
             if (ganador == null)
             {
-                Console.WriteLine("¡EMPATE! Cada jugador conserva su carta. El próximo selector se sortea.");
-            }
-            else if (ganador == jugador1)
-            {
-                Console.WriteLine("¡GANASTE LA RONDA! Absorbiste la carta del rival:");
-                cartaRival.mostrar();
+                Console.WriteLine("Empate: cada jugador conserva su carta.");
             }
             else
             {
-                Console.WriteLine("Perdiste la ronda. " + jugador2.getNombre() + " se lleva tu carta " + miCarta.getNombre() + ".");
+                Console.WriteLine("Ganador de la ronda " + ronda.getNumero() + ": " + ganador.getNombre());
+                if (ganador == jugador1)
+                {
+                    Console.WriteLine("Absorbiste la carta de " + jugador2.getNombre() + ":");
+                    jugador2.getCartaElegida().mostrar();
+                }
+                else
+                {
+                    Console.WriteLine(jugador2.getNombre() + " se lleva tu carta " + jugador1.getCartaElegida().getNombre() + ".");
+                }
             }
         }
 
-        // ============================================================
-        // Consultas
-        // ============================================================
-
-        private Jugador getJugadorServidor()
+        private void pausa()
         {
-            return comunicacion.esServidor() ? jugador1 : jugador2;
-        }
-
-        private Jugador getJugadorCliente()
-        {
-            return comunicacion.esServidor() ? jugador2 : jugador1;
+            Console.WriteLine("\n\nPresione Enter para continuar: ");
+            Console.ReadLine();
+            Console.Clear();
         }
 
         public string getEstado()
         {
             return estado;
-        }
-
-        public Jugador getJugador1()
-        {
-            return jugador1;
-        }
-
-        public Jugador getJugador2()
-        {
-            return jugador2;
-        }
-
-        public int getTurnoActual()
-        {
-            return turnoActual;
-        }
-
-        public List<Ronda> getRondas()
-        {
-            return new List<Ronda>(rondas);
         }
     }
 }

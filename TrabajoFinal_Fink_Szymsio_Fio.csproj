@@ -8,9 +8,9 @@
     <RootNamespace>TrabajoFinal_Fink_Szymsio_Fio</RootNamespace>
   </PropertyGroup>
 
-  <!-- Los archivos de personajes y los datos de prueba se copian junto al ejecutable -->
+  <!-- Las cartas y los datos de prueba se copian junto al ejecutable -->
   <ItemGroup>
-    <None Include="Personajes\**\*.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Cartas\**\*.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="DatosDePrueba\**\*.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

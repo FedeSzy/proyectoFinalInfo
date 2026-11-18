@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TrabajoFinal_Fink_Szymsio_Fio
 {
-    // Forma jugable de un personaje. No duplica sus datos: los obtiene delegando en Personaje (composición).
+    // La carta no repite los datos del personaje: se los pide a su Personaje (delegación)
     public class Carta
     {
         private int id;
@@ -14,30 +14,34 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
 
         public Carta(int id, Personaje personaje)
         {
-            if (personaje == null)
-                throw new ArgumentException("Una carta necesita un personaje.");
             this.id = id;
             this.personaje = personaje;
         }
 
-        // Devuelve 1 si esta carta tiene el valor mayor, -1 si tiene el menor y 0 si empatan.
+        // Devuelve 1 si esta carta tiene el valor mayor, -1 si tiene el menor y 0 si empatan
         public int compararAtributo(Carta carta, string atributo)
         {
-            int miValor;
-            int suValor;
+            int miValor = getValor(atributo);
+            int suValor = carta.getValor(atributo);
             int resultado;
 
-            if (carta == null)
-                throw new ArgumentException("No hay carta rival para comparar.");
-
-            miValor = getValor(atributo);
-            suValor = carta.getValor(atributo);
-            if (miValor > suValor)
-                resultado = 1;
-            else if (miValor < suValor)
-                resultado = -1;
-            else
+            if (miValor == -1)
+            {
+                Console.WriteLine("Atributo inválido");
                 resultado = 0;
+            }
+            else if (miValor > suValor)
+            {
+                resultado = 1;
+            }
+            else if (miValor < suValor)
+            {
+                resultado = -1;
+            }
+            else
+            {
+                resultado = 0;
+            }
             return resultado;
         }
 
@@ -61,33 +65,22 @@ namespace TrabajoFinal_Fink_Szymsio_Fio
             return personaje;
         }
 
-        // Muestra la carta completa. Los atributos de la lista "bloqueados" se marcan como no disponibles.
-        public void mostrar(List<string> bloqueados)
+        public void mostrar()
         {
             List<int> valores = personaje.getAtributos();
 
-            Console.WriteLine("==============================================");
-            Console.WriteLine("  " + personaje.getNombre().ToUpper());
-            Console.WriteLine("==============================================");
-            Console.WriteLine(personaje.getAsciiArt().TrimEnd());
-            Console.WriteLine("----------------------------------------------");
+            Console.WriteLine();
+            Console.WriteLine("================================");
+            Console.WriteLine(personaje.getNombre());
+            Console.WriteLine("================================");
+            Console.WriteLine(personaje.getAsciiArt());
             Console.WriteLine(personaje.getDescripcion());
-            Console.WriteLine("----------------------------------------------");
+            Console.WriteLine("--------------------------------");
             for (int i = 0; i < valores.Count; i++)
             {
-                string nombre = Personaje.ATRIBUTOS[i].ToUpper().PadRight(13);
-                string barra = new string('#', valores[i] / 50).PadRight(15);
-                string marca = "";
-                if (bloqueados != null && bloqueados.Contains(Personaje.ATRIBUTOS[i]))
-                    marca = "  [BLOQUEADO]";
-                Console.WriteLine("  " + nombre + valores[i].ToString().PadLeft(4) + "  " + barra + marca);
+                Console.WriteLine(Personaje.ATRIBUTOS[i].ToUpper() + ": " + valores[i]);
             }
-            Console.WriteLine("==============================================");
-        }
-
-        public void mostrar()
-        {
-            mostrar(null);
+            Console.WriteLine("================================");
         }
     }
 }

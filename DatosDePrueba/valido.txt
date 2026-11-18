@@ -1,8 +1,7 @@
 NOMBRE
 Personaje de Prueba
 DESCRIPCION
-Primera línea de la descripción.
-Segunda línea.
+Descripción de prueba.
 ASCIIART
   o
  /|\
